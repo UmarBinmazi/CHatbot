@@ -1,8 +1,6 @@
 import logging
 from typing import List, Dict, Any, Union
 import re
-import itertools
-import tiktoken
 from core.utils import num_tokens_from_string
 
 # Configure logging
