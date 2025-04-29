@@ -1,0 +1,1 @@
+Add a regenerate response button and clear conversation button that will reset the conversation and also clear the uploaded document without reloading the pages
