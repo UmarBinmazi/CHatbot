@@ -31,9 +31,9 @@ from core.ocr_processor import OCRProcessor
 api_keys = setup_api_keys()
 
 # Set default configuration
-DEFAULT_MAX_TOKENS_CONTEXT = 4000
-DEFAULT_MAX_TOKENS_RESPONSE = 1000
-DEFAULT_MODEL = "llama3-70b-8192"
+DEFAULT_MAX_TOKENS_CONTEXT = 8192
+DEFAULT_MAX_TOKENS_RESPONSE = 2048
+DEFAULT_MODEL = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
 
 # Load configuration from environment
 max_tokens_context = int(get_env_variable("MAX_CONTEXT_TOKENS", DEFAULT_MAX_TOKENS_CONTEXT))
@@ -45,8 +45,8 @@ rag_config = RAGConfig(
     llm_model=model_name,
     max_tokens_context=max_tokens_context,
     max_tokens_response=max_tokens_response,
-    temperature=0.7,
-    retrieval_k=3,  # Reduced from default for token management
+    temperature=0.5,  # Reduced for more deterministic outputs
+    retrieval_k=8,  # Increased for more comprehensive knowledge retrieval
     handle_low_quality=True  # Enable enhanced OCR and text correction by default
 )
 

@@ -28,13 +28,14 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RAGConfig:
     embedding_model: str = "all-MiniLM-L6-v2"
-    llm_model: str = "llama-3.3-70b-versatile"
-    temperature: float = 0.7
-    max_tokens_response: int = 1024
-    max_tokens_context: int = 4000
-    retrieval_k: int = 6
+    llm_model: str = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+    temperature: float = 0.5  # Reduced for more deterministic outputs
+    max_tokens_response: int = 2048  # Increased for more comprehensive answers
+    max_tokens_context: int = 8192  # Increased to leverage Llama-4's context window
+    retrieval_k: int = 8  # Increased for more comprehensive knowledge retrieval
     page_filtering: bool = True
     handle_low_quality: bool = True  # Enable special handling for low-quality text
+    use_structure: bool = True  # Enable structure-aware retrieval
 
 # ================================
 # Token Management
