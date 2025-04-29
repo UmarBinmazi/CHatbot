@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Optional, Any, Union
+from typing import List, Dict, Any, Union
 import re
 import itertools
 import tiktoken
