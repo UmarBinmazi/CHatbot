@@ -45,24 +45,102 @@ class OCRProcessor:
 
     def preprocess_image(self, image: Image.Image) -> Image.Image:
         """Preprocess image for better OCR results"""
-        # Convert to grayscale
-        img = np.array(image)
-        if len(img.shape) == 3:
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        
-        # Apply adaptive thresholding
-        img = cv2.adaptiveThreshold(
-            img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-        )
-        
-        # Apply morphological operations
-        kernel = np.ones((1, 1), np.uint8)
-        img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
-        
-        # Denoise
-        img = cv2.fastNlMeansDenoising(img)
-        
-        return Image.fromarray(img)
+        try:
+            # Convert to numpy array
+            img = np.array(image)
+            
+            # Skip if image is too small or invalid
+            if img.size == 0 or img.ndim < 2:
+                return image
+                
+            # Convert to grayscale if needed
+            if len(img.shape) == 3:
+                img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            
+            # Resize if image is too small - helps with low-resolution embedded images
+            if img.shape[0] < 1000 or img.shape[1] < 1000:
+                # Calculate scale factor based on image size
+                target_height = 1500
+                scale_factor = target_height / img.shape[0]
+                img = cv2.resize(img, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_CUBIC)
+            
+            # Create multiple processing variants and choose the best result
+            variants = []
+            
+            # Variant 1: Standard processing with CLAHE
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            img1 = clahe.apply(img)
+            
+            # Use adaptive thresholding with params optimized for text
+            threshold1 = cv2.adaptiveThreshold(
+                img1, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 15, 9
+            )
+            
+            # Apply morphological operations to enhance text
+            kernel = np.ones((1, 1), np.uint8)
+            threshold1 = cv2.morphologyEx(threshold1, cv2.MORPH_CLOSE, kernel)
+            variants.append(threshold1)
+            
+            # Variant 2: More aggressive processing for faded or light text
+            img2 = img.copy()
+            # Increase contrast using histogram equalization
+            img2 = cv2.equalizeHist(img2)
+            
+            # Use more aggressive thresholding for faint text
+            threshold2 = cv2.adaptiveThreshold(
+                img2, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 15
+            )
+            
+            # More aggressive morphological operations
+            kernel2 = np.ones((2, 2), np.uint8)
+            threshold2 = cv2.morphologyEx(threshold2, cv2.MORPH_CLOSE, kernel2)
+            
+            # Dilate slightly to make text more prominent
+            threshold2 = cv2.dilate(threshold2, np.ones((1, 1), np.uint8), iterations=1)
+            variants.append(threshold2)
+            
+            # Variant 3: Processing optimized for structured content (tables, indexes)
+            img3 = img.copy()
+            # Use bilateral filtering to preserve edges in tables
+            img3 = cv2.bilateralFilter(img3, 9, 75, 75)
+            
+            # Apply Otsu's thresholding which works well on bimodal images like tables
+            _, threshold3 = cv2.threshold(img3, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            
+            # Use appropriate morphological operations for structured text
+            kernel3 = np.ones((1, 1), np.uint8)
+            threshold3 = cv2.morphologyEx(threshold3, cv2.MORPH_OPEN, kernel3)
+            variants.append(threshold3)
+            
+            # Apply denoising to all variants
+            for i in range(len(variants)):
+                variants[i] = cv2.fastNlMeansDenoising(variants[i], None, 10, 7, 21)
+            
+            # Select the best variant based on text clarity (count of connected components)
+            best_variant = threshold1  # Default to first variant
+            max_components = 0
+            
+            for variant in variants:
+                # Count text-like connected components
+                contours, _ = cv2.findContours(255-variant, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                text_like = 0
+                for contour in contours:
+                    x, y, w, h = cv2.boundingRect(contour)
+                    aspect_ratio = float(w) / h if h > 0 else 0
+                    # Filter by size and aspect ratio to find text-like components
+                    if w > 5 and h > 5 and aspect_ratio < 10 and aspect_ratio > 0.1:
+                        text_like += 1
+                        
+                if text_like > max_components:
+                    max_components = text_like
+                    best_variant = variant
+            
+            return Image.fromarray(best_variant)
+            
+        except Exception as e:
+            # Log the error but return original image if processing fails
+            self.logger.error(f"Error in image preprocessing: {str(e)}")
+            return image
 
     def extract_text(self, image: Image.Image) -> str:
         """Extract text from image using Tesseract OCR"""

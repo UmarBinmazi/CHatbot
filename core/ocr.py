@@ -446,6 +446,39 @@ class OCRProcessor:
             sample_pages = min(2, len(doc))
             sample_text = []
             
+            # First pass: handle embedded images specifically
+            # This targets cases where a PDF has images containing text
+            logger.info("Checking for embedded images with text content")
+            for i in range(min(5, len(doc))):
+                try:
+                    page = doc[i]
+                    # Get list of embedded images
+                    img_list = page.get_images(full=True)
+                    
+                    if img_list:
+                        page_width, page_height = page.rect.width, page.rect.height
+                        for img_info in img_list:
+                            try:
+                                xref = img_info[0]
+                                base_image = doc.extract_image(xref)
+                                if base_image:
+                                    # Check if image is significant size compared to page
+                                    img_width, img_height = base_image["width"], base_image["height"]
+                                    if img_width > 300 and img_height > 300:  # Minimum size threshold
+                                        # Convert image bytes to array for processing
+                                        image = Image.open(io.BytesIO(base_image["image"]))
+                                        image_array = np.array(image)
+                                        
+                                        # Process directly with OCR
+                                        img_text = self.process_image(image_array)
+                                        if img_text and len(img_text) > 50:
+                                            sample_text.append(img_text)
+                            except Exception as img_err:
+                                logger.warning(f"Failed to process embedded image: {img_err}")
+                except Exception as e:
+                    logger.warning(f"Failed to check embedded images on page {i}: {e}")
+            
+            # Now render pages as normal
             for i in range(sample_pages):
                 try:
                     page = doc[i]
@@ -474,38 +507,98 @@ class OCRProcessor:
             for page_num in range(pages_to_process):
                 try:
                     page = doc[page_num]
-                    pix = self._render_page(page)
                     
-                    if pix is None:
-                        logger.warning(f"Could not render page {page_num}")
-                        continue
-                        
-                    try:
-                        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
-                        if pix.n == 4:
-                            img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
-                    except Exception as e:
-                        logger.warning(f"Error converting pixmap to image on page {page_num}: {e}")
-                        continue
-                        
-                    try:
-                        text = self.process_image(img)
-                        confidence = self._estimate_ocr_confidence(text)
-                        
-                        if text:
-                            # Apply trained correction
-                            corrected = self.corrector.correct_text(text)
+                    # First try to extract embedded images and OCR them directly
+                    images_processed = False
+                    img_list = page.get_images(full=True)
+                    if img_list:
+                        page_image_text = []
+                        for img_info in img_list:
+                            try:
+                                xref = img_info[0]
+                                base_image = doc.extract_image(xref)
+                                if base_image:
+                                    # Only process significant sized images
+                                    img_width, img_height = base_image["width"], base_image["height"]
+                                    if img_width > 300 and img_height > 300:
+                                        image = Image.open(io.BytesIO(base_image["image"]))
+                                        image_array = np.array(image)
+                                        img_text = self.process_image(image_array)
+                                        if img_text and len(img_text) > 50:
+                                            page_image_text.append(img_text)
+                                            images_processed = True
+                            except Exception as img_err:
+                                logger.warning(f"Failed to process embedded image on page {page_num}: {img_err}")
+                                
+                        # If we got text from embedded images, use it
+                        if page_image_text:
+                            combined_text = "\n".join(page_image_text)
+                            corrected = self.corrector.correct_text(combined_text)
                             
                             full_text.append(corrected)
                             metadata.append({
                                 "text": corrected,
                                 "page": page_num + 1,
-                                "extraction_method": "ocr",
-                                "confidence": confidence,
+                                "extraction_method": "embedded_image_ocr",
+                                "confidence": 0.8,  # Higher confidence for direct image extraction
                                 "corrected": True
                             })
-                    except Exception as e:
-                        logger.warning(f"OCR failed for page {page_num}: {e}")
+                    
+                    # If no embedded images were processed, use regular page rendering
+                    if not images_processed:
+                        try:
+                            # Try the region-based approach first for better results
+                            region_text = self._process_page_with_regions(page)
+                            
+                            if region_text and len(region_text) > 50:
+                                # Use the region-based result if successful
+                                full_text.append(region_text)
+                                metadata.append({
+                                    "text": region_text,
+                                    "page": page_num + 1,
+                                    "extraction_method": "region_based_ocr",
+                                    "confidence": 0.85,  # Higher confidence for region-based
+                                    "corrected": True
+                                })
+                                continue  # Skip the standard rendering approach
+                        except Exception as e:
+                            logger.warning(f"Region-based processing failed for page {page_num}: {e}")
+                            # Fall back to standard approach
+                            pass
+                        
+                        # Standard full-page rendering approach as fallback
+                        pix = self._render_page(page)
+                        
+                        if pix is None:
+                            logger.warning(f"Could not render page {page_num}")
+                            continue
+                            
+                        try:
+                            img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
+                            if pix.n == 4:
+                                img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
+                        except Exception as e:
+                            logger.warning(f"Error converting pixmap to image on page {page_num}: {e}")
+                            continue
+                            
+                        try:
+                            text = self.process_image(img)
+                            confidence = self._estimate_ocr_confidence(text)
+                            
+                            if text:
+                                # Apply trained correction
+                                corrected = self.corrector.correct_text(text)
+                                
+                                full_text.append(corrected)
+                                metadata.append({
+                                    "text": corrected,
+                                    "page": page_num + 1,
+                                    "extraction_method": "ocr",
+                                    "confidence": confidence,
+                                    "corrected": True
+                                })
+                        except Exception as e:
+                            logger.warning(f"OCR failed for page {page_num}: {e}")
                         
                 except Exception as e:
                     logger.warning(f"Error processing page {page_num}: {e}")
@@ -528,20 +621,33 @@ class OCRProcessor:
     def _render_page(self, page) -> Optional[fitz.Pixmap]:
         """Render PDF page to image with error handling."""
         try:
-            # Lower resolution for faster processing with reasonable quality
-            zoom = 2.0  # Back to 2.0 for better performance
-            mat = fitz.Matrix(zoom, zoom)
-            return page.get_pixmap(matrix=mat, alpha=False)
+            # Higher resolution for much better OCR quality
+            zoom = 4.0  # Increased to 4.0 for maximum image detail
+            # Use a matrix with higher DPI to capture fine details
+            dpi = 300  # Standard printing DPI for high quality
+            matrix = fitz.Matrix(zoom, zoom)
+            # Set higher color depth to ensure all details are captured
+            colorspace = fitz.csRGB  # Use RGB color space for better detail
+            # Create pixmap with no alpha to increase clarity
+            return page.get_pixmap(matrix=matrix, alpha=False, colorspace=colorspace)
         except Exception as e:
-            logger.error(f"Failed to render page: {e}")
+            logger.error(f"Failed to render page with high quality: {e}")
             
             # Try with different parameters as fallback
             try:
-                zoom = 1.5  # Even lower zoom as fallback
-                mat = fitz.Matrix(zoom, zoom)
-                return page.get_pixmap(matrix=mat, alpha=True)
-            except:
-                return None
+                zoom = 3.0  # Still higher quality than previous version
+                matrix = fitz.Matrix(zoom, zoom)
+                return page.get_pixmap(matrix=matrix, alpha=False)
+            except Exception as e2:
+                logger.error(f"Failed with second attempt: {e2}")
+                
+                # Last resort with minimal settings
+                try:
+                    zoom = 2.0  
+                    matrix = fitz.Matrix(zoom, zoom)
+                    return page.get_pixmap(matrix=matrix, alpha=True)
+                except:
+                    return None
 
     def _estimate_ocr_confidence(self, text: str) -> float:
         """Estimate OCR confidence based on text quality."""
@@ -575,3 +681,76 @@ class OCRProcessor:
         except Exception as e:
             logger.warning(f"Error estimating confidence: {e}")
             return 0.5  # Default moderate confidence
+
+    def _process_page_with_regions(self, page) -> str:
+        """Process a page by dividing it into regions and applying different zoom levels.
+        This helps with documents that have mixed content like text, tables, and images.
+        """
+        try:
+            # Get the page size
+            page_width = page.rect.width
+            page_height = page.rect.height
+            
+            # Define regions to process with different settings
+            regions = [
+                # Full page at standard resolution
+                (0, 0, page_width, page_height, 3.0),
+                # Top half with higher resolution (often headers or titles)
+                (0, 0, page_width, page_height/2, 4.0),
+                # Bottom half with higher resolution (often footers or captions)
+                (0, page_height/2, page_width, page_height, 4.0)
+            ]
+            
+            # For wider pages, add left/right regions for columns
+            if page_width > page_height:
+                regions.extend([
+                    # Left half for column-based content
+                    (0, 0, page_width/2, page_height, 4.0),
+                    # Right half for column-based content
+                    (page_width/2, 0, page_width, page_height, 4.0)
+                ])
+            
+            # Extract and process text from each region
+            texts = []
+            
+            for x0, y0, x1, y1, zoom in regions:
+                try:
+                    # Create a transformation matrix for this region with specified zoom
+                    mat = fitz.Matrix(zoom, zoom)
+                    
+                    # Extract just this region
+                    clip = fitz.Rect(x0, y0, x1, y1)
+                    pix = page.get_pixmap(matrix=mat, alpha=False, clip=clip)
+                    
+                    # Convert pixmap to image
+                    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
+                    if pix.n == 4:  # RGBA
+                        img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
+                        
+                    # Apply OCR
+                    region_text = self.process_image(img)
+                    
+                    # Only keep if meaningful text was found
+                    if region_text and len(region_text.strip()) > 20:
+                        texts.append(region_text)
+                except Exception as e:
+                    logger.warning(f"Failed to process region {clip}: {e}")
+            
+            # Combine the extracted text, removing duplicates
+            if not texts:
+                return ""
+                
+            # Use the corrector to improve and deduplicate text
+            combined = "\n\n".join(texts)
+            
+            # Apply post-processing to clean up and deduplicate
+            if self.corrector.trained:
+                final_text = self.corrector.correct_text(combined)
+            else:
+                final_text = self.postprocess_text(combined)
+                
+            return final_text
+            
+        except Exception as e:
+            logger.error(f"Error processing page regions: {e}")
+            return ""

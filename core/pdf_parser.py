@@ -36,8 +36,8 @@ class PDFParser:
             elif self._has_encoding_issues(text) or has_problematic_fonts:
                 logger.info(f"Text has encoding issues or problematic fonts detected, falling back to OCR")
                 text, metadata = self.ocr_processor.extract_text_from_pdf(pdf_bytes)
-            elif self._needs_ocr(pdf_bytes):
-                logger.info("Document appears to be scanned, using OCR")
+            elif self._needs_ocr(pdf_bytes, text):  # Pass extracted text to help with decision
+                logger.info("Document appears to be scanned or contains embedded images, using OCR")
                 text, metadata = self.ocr_processor.extract_text_from_pdf(pdf_bytes)
             
             # Handle the case where no text was extracted either way
@@ -145,25 +145,107 @@ class PDFParser:
             logger.error(f"Error analyzing fonts: {e}")
             return {'has_problematic_fonts': True, 'error': str(e)}
 
-    def _needs_ocr(self, pdf_bytes: bytes) -> bool:
+    def _needs_ocr(self, pdf_bytes: bytes, text: str = None) -> bool:
         try:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
             # Only check first 2 pages for better performance
             pages_to_check = min(2, len(doc))
             text_length = 0
             has_encoding_issues = False
+            has_significant_images = False
+            text_to_image_ratio = 1.0  # Default ratio (higher means more text than images)
+            structured_content_detected = False
+            
+            # If text was already extracted, analyze its quality
+            if text:
+                # Check for suspicious patterns that suggest image-based text
+                suspicious_patterns = [
+                    r'[^\w\s.,;:?!()-]',  # Non-standard characters
+                    r'[\u0000-\u001F]',    # Control characters
+                    r'[^\x00-\x7F]+'       # Non-ASCII characters (could be valid in some languages)
+                ]
+                
+                pattern_matches = 0
+                for pattern in suspicious_patterns:
+                    matches = re.findall(pattern, text)
+                    if len(matches) > len(text) / 100:  # More than 1% matches
+                        pattern_matches += 1
+                
+                # If text has suspicious patterns, favor OCR
+                if pattern_matches >= 2:
+                    return True
+                
+                # Check for potential structured content like tables, indexes, TOC
+                structured_patterns = [
+                    r'\.\.\.\.*\d+',  # TOC patterns like "....123"
+                    r'\d+\s*\.\s*\d+', # Numbered sections like "1.2"
+                    r'^\s*\d+\.\s+\w+', # Chapter numbers
+                    r'\[\d+\]',  # Reference numbers
+                    r'^\s*[A-Z]\.\s+\w+', # Lettered lists
+                    r'^\s*\d+\)\s+\w+'  # Numbered lists with parentheses
+                ]
+                
+                for pattern in structured_patterns:
+                    if len(re.findall(pattern, text, re.MULTILINE)) > 3:
+                        structured_content_detected = True
+                        # For structured content, direct extraction often loses formatting
+                        # So even if we got text, we might want to try OCR
+                        logger.info("Structured content detected (indexes, TOC, lists), OCR might improve extraction")
+                        break
             
             for i in range(pages_to_check):
                 try:
                     page = doc[i]
-                    text = page.get_text().strip()
+                    page_text = page.get_text().strip()
+                    
                     # Quick check for gibberish - if first page is gibberish, likely need OCR
-                    if i == 0 and is_gibberish(text):
+                    if i == 0 and is_gibberish(page_text):
                         return True
-                    if is_gibberish(text):
+                    if is_gibberish(page_text):
                         has_encoding_issues = True
-                    text_length += len(text)
-                except Exception:
+                    text_length += len(page_text)
+                    
+                    # Check for lack of expected characters in text docs
+                    if page_text and len(page_text) > 100:
+                        # Normal text docs should have common punctuation
+                        if not any(c in page_text for c in '.,:;?!()-'):
+                            has_encoding_issues = True
+                    
+                    # Check images more thoroughly
+                    img_list = page.get_images(full=True)
+                    if img_list:
+                        # Get page dimensions
+                        page_width, page_height = page.rect.width, page.rect.height
+                        page_area = page_width * page_height
+                        
+                        # Calculate approximate pixel count for all images on the page
+                        total_image_pixels = 0
+                        
+                        # Analyze images to detect potential text in images
+                        try:
+                            for img_info in img_list:
+                                xref = img_info[0]
+                                base_image = doc.extract_image(xref)
+                                if base_image:
+                                    img_width, img_height = base_image["width"], base_image["height"]
+                                    total_image_pixels += img_width * img_height
+                            
+                            # If images cover significant portion of page
+                            if total_image_pixels > 0.2 * page_area:  # Lowered threshold to 20%
+                                has_significant_images = True
+                                
+                                # Calculate text-to-image ratio (bytes of text per pixel of image)
+                                if total_image_pixels > 0:
+                                    text_to_image_ratio = len(page_text) / (total_image_pixels/1000)
+                        except Exception as img_err:
+                            logger.warning(f"Error analyzing image: {img_err}")
+                        
+                        # Check layout - pages with many small images might be diagrams/tables
+                        if len(img_list) > 5:
+                            structured_content_detected = True
+                            
+                except Exception as e:
+                    logger.warning(f"Error checking page {i}: {e}")
                     has_encoding_issues = True
             
             if pages_to_check > 0:
@@ -171,15 +253,19 @@ class PDFParser:
             else:
                 avg_text = 0
                 
-            # Quick check for images - only on first page for performance
-            try:
-                page = doc[0]
-                img_list = page.get_images(full=True)
-                has_images = len(img_list) > 0
-            except Exception:
-                has_images = False
-                    
-            return avg_text < 100 or has_encoding_issues or (has_images and avg_text < 500)
+            # Enhanced decision logic with aggressive fallback to OCR
+            should_use_ocr = (
+                avg_text < 100 or                        # Very little text
+                has_encoding_issues or                   # Text encoding problems 
+                has_significant_images or                # Has large images that might contain text
+                text_to_image_ratio < 0.2 or             # Very little text relative to image size (more aggressive)
+                structured_content_detected or           # Detected structured content like tables/indexes
+                (len(img_list) > 0 and avg_text < 500)   # Has images and limited text
+            )
+            
+            logger.info(f"OCR decision: {should_use_ocr} (text: {avg_text}, images: {has_significant_images}, structured: {structured_content_detected}, ratio: {text_to_image_ratio})")
+            return should_use_ocr
+            
         except Exception as e:
             logger.error(f"Error determining OCR need: {e}")
             return True
