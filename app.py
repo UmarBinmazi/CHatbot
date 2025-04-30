@@ -574,7 +574,7 @@ def process_query(query):
                         new_messages = current_chat["messages"] + [{"role": "assistant", "content": error_response}]
                         set_current_chat("messages", new_messages)
     else:
-        new_messages = current_chat["messages"] + [{"role": "assistant", "content": "Please upload a PDF document first in the sidebar."}]
+        new_messages = current_chat["messages"] + [{"role": "assistant", "content": "Please upload a document first in the sidebar."}]
         set_current_chat("messages", new_messages)
         st.rerun()
 
