@@ -11,7 +11,7 @@ import pytesseract
 import io
 
 # Must be the first Streamlit command
-st.set_page_config(page_title="Chatbot 7", layout="wide")
+st.set_page_config(page_title="Chatbot", layout="wide")
 
 # Configure logging
 logging.basicConfig(
@@ -49,9 +49,6 @@ rag_config = RAGConfig(
     retrieval_k=8,  # Increased for more comprehensive knowledge retrieval
     handle_low_quality=True  # Enable enhanced OCR and text correction by default
 )
-
-# Initialize OCR processor with multiple languages
-ocr_processor = OCRProcessor(language="eng+urd+mar+hin")  # Support English, Urdu, hindi and Marathi
 
 # Initialize session state for multiple chats
 if "chat_sessions" not in st.session_state:
