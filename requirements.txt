@@ -9,6 +9,7 @@ opencv-python>=4.7.0
 
 # OCR
 pytesseract>=0.3.10
+python-docx>=0.8.11
 
 # Language models
 langchain>=0.0.310
