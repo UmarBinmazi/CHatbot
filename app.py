@@ -25,7 +25,7 @@ from core.utils import setup_api_keys, get_env_variable
 from core.pdf_parser import PDFParser
 from core.chunking import DocumentChunker
 from embeddings.rag_engine import RAGEngine, RAGConfig
-from core.ocr_processor import OCRProcessor
+from core.ocr import OCRProcessor
 
 # Initialize API keys
 api_keys = setup_api_keys()
