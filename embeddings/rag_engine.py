@@ -188,6 +188,7 @@ class RAGEngine:
         You are a helpful assistant. 
         
         Important: Some of the document context may contain OCR errors or text recognition issues. 
+        Provide the Document Overview only once.
         Do your best to understand the meaning despite these errors. 
         If you're uncertain about particular text, indicate this in your response.
         When referring to specific parts of the document, mention page numbers if available.
