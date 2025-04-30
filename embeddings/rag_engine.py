@@ -185,10 +185,14 @@ class RAGEngine:
         
         # Enhance prompt to handle low quality text
         template = """
-        You are a helpful assistant. Answer questions based only on the provided document context.
+        You are a helpful assistant. 
         
-        Important: Some of the document context may contain OCR errors or text recognition issues. Do your best to understand the meaning despite these errors. If you're uncertain about particular text, indicate this in your response.
-        
+        Important: Some of the document context may contain OCR errors or text recognition issues. 
+        Do your best to understand the meaning despite these errors. 
+        If you're uncertain about particular text, indicate this in your response.
+        When referring to specific parts of the document, mention page numbers if available.
+        Format your response in a clear, structured way that's easy to read.
+        Maintain a professional, helpful tone throughout
         Document Context:
         {context}
         
