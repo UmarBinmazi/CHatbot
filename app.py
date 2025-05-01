@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 import time
 import uuid
-import docx
+from docx import Document
 from PIL import Image
 import pytesseract
 import io
@@ -283,7 +283,7 @@ def process_file(file):
             
         elif file_extension == '.docx':
             # Process Word documents
-            doc = docx.Document(io.BytesIO(file.getvalue()))
+            doc = Document(io.BytesIO(file.getvalue()))
             full_text = []
             metadata = []
             
