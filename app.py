@@ -63,7 +63,8 @@ if "current_chat_id" not in st.session_state:
         "messages": [],
         "rag_engine": None,
         "document_processed": False,
-        "pdf_name": None
+        "pdf_name": None,
+        "direct_chat_engine": None
     }
     
 # Add state for managing chat renaming
@@ -87,7 +88,8 @@ def create_new_chat():
         "messages": [],
         "rag_engine": None,
         "document_processed": False,
-        "pdf_name": None
+        "pdf_name": None,
+        "direct_chat_engine": None
     }
     st.session_state.current_chat_id = new_chat_id
     
@@ -544,6 +546,10 @@ def process_query(query):
                                 if confidence is not None:
                                     confidence_color = "green" if confidence > 0.8 else "orange" if confidence > 0.5 else "red"
                                     st.markdown(f"<span style='color:{confidence_color}'>Source confidence: {confidence:.2f}</span>", unsafe_allow_html=True)
+                    
+                    # Add assistant response to chat history
+                    new_messages = current_chat["messages"] + [{"role": "assistant", "content": answer}]
+                    set_current_chat("messages", new_messages)
                 else:
                     # No document uploaded, use direct LLM chat instead
                     groq_api_key = get_env_variable("GROQ_API_KEY")
@@ -551,23 +557,23 @@ def process_query(query):
                         st.error("Groq API key is missing. Please add it to your environment variables.")
                         answer = "I couldn't process your request because the Groq API key is missing. Please add it to your environment variables."
                     else:
-                        # Check if we have a RAG engine already
-                        if not hasattr(current_chat, "direct_chat_engine") or not current_chat.get("direct_chat_engine"):
+                        # Check if we have a direct chat engine already
+                        if "direct_chat_engine" not in current_chat or current_chat["direct_chat_engine"] is None:
                             # Create and store a chat engine for this session
                             temp_engine = RAGEngine(config=rag_config).initialize()
-                            temp_engine.setup_retrieval_chain(groq_api_key)
+                            temp_engine.setup_direct_chain(groq_api_key)
                             set_current_chat("direct_chat_engine", temp_engine)
                             
                         # Get the chat engine and query
-                        chat_engine = current_chat.get("direct_chat_engine")
+                        chat_engine = current_chat["direct_chat_engine"]
                         answer = chat_engine.query_direct(query)
                     
                     # Display the answer
                     st.write(answer)
-                
-                # Add assistant response to chat history
-                new_messages = current_chat["messages"] + [{"role": "assistant", "content": answer}]
-                set_current_chat("messages", new_messages)
+                    
+                    # Add assistant response to chat history for direct chat
+                    new_messages = current_chat["messages"] + [{"role": "assistant", "content": answer}]
+                    set_current_chat("messages", new_messages)
                 
             except Exception as e:
                 error_msg = str(e)

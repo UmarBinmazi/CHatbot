@@ -134,6 +134,8 @@ class RAGEngine:
         self.vectorstore = None
         self.memory = None
         self.chain = None
+        self.direct_chain = None
+        self.direct_llm = None
 
     def initialize(self):
         try:
@@ -228,6 +230,89 @@ class RAGEngine:
             verbose=True,
         )
         logger.info("Retrieval chain setup complete.")
+        
+    def setup_direct_chain(self, groq_api_key: str):
+        """
+        Set up a direct LLM chain without requiring a knowledge base.
+        This is used for general chat when no document is loaded.
+        """
+        # Create LLM
+        self.direct_llm = ChatGroq(
+            model_name=self.config.llm_model,
+            temperature=self.config.temperature,
+            groq_api_key=groq_api_key,
+            max_tokens=self.config.max_tokens_response,
+        )
+        
+        # Initialize memory if not already done
+        if not self.memory:
+            self.memory = ConversationBufferMemory(
+                memory_key="chat_history",
+                return_messages=True,
+            )
+        
+        logger.info("Direct LLM setup complete.")
+        
+    def query_direct(self, query: str) -> str:
+        """
+        Query the LLM directly without document context.
+        Used when no document has been uploaded.
+        """
+        try:
+            # Check if direct LLM is set up
+            if not hasattr(self, 'direct_llm') or self.direct_llm is None:
+                raise ValueError("Direct LLM not initialized. Call setup_direct_chain first.")
+            
+            # Get chat history from memory
+            chat_history = []
+            if self.memory and hasattr(self.memory, 'chat_memory'):
+                chat_history = self.memory.chat_memory.messages
+            
+            # Create a system message
+            system_msg = "You are a helpful assistant. Answer the user's question to the best of your ability. You can answer any question based on your knowledge."
+            
+            # Format messages for the model
+            from langchain.schema import HumanMessage, AIMessage, SystemMessage
+            
+            formatted_messages = [SystemMessage(content=system_msg)]
+            
+            # Add chat history
+            for msg in chat_history:
+                if hasattr(msg, 'type'):
+                    if msg.type == "human":
+                        formatted_messages.append(HumanMessage(content=msg.content))
+                    elif msg.type == "ai":
+                        formatted_messages.append(AIMessage(content=msg.content))
+            
+            # Add current query
+            formatted_messages.append(HumanMessage(content=query))
+            
+            # Get response from LLM
+            response = self.direct_llm.invoke(formatted_messages)
+            
+            # Extract content from response
+            if hasattr(response, 'content'):
+                answer = response.content
+            else:
+                # Fallback if content attribute not found
+                logger.warning("Response content not found, using string representation")
+                answer = str(response)
+            
+            # Ensure answer is not empty
+            if not answer:
+                answer = "I couldn't generate a response at this time. Please try again."
+            
+            # Save to memory
+            try:
+                self.memory.save_context({"question": query}, {"text": answer})
+            except Exception as mem_error:
+                logger.warning(f"Failed to save to memory: {mem_error}")
+            
+            return answer
+            
+        except Exception as e:
+            logger.error(f"Direct query error: {e}")
+            return f"I encountered an error: {str(e)}"
 
     def _create_retriever(self):
         base_retriever = self.vectorstore.as_retriever(
@@ -304,76 +389,3 @@ class RAGEngine:
         except Exception as e:
             logger.error(f"Query error: {e}")
             return f"I encountered an error: {e}", []
-            
-    def query_direct(self, query: str) -> str:
-        """
-        Query the LLM directly without document context.
-        Used when no document has been uploaded.
-        """
-        try:
-            # Setup a minimal context template for direct queries
-            template = """
-            You are a helpful assistant. Answer the user's question to the best of your ability.
-            
-            Chat History:
-            {chat_history}
-            
-            Human: {question}
-            
-            Assistant:
-            """
-            
-            prompt = PromptTemplate(
-                template=template,
-                input_variables=["chat_history", "question"]
-            )
-            
-            # Get the groq_api_key that was passed to setup_retrieval_chain
-            groq_api_key = None
-            
-            # Try to get the API key from existing chain
-            if hasattr(self, 'chain') and self.chain:
-                try:
-                    # Access the LLM directly from the chain if possible
-                    llm = self.chain.llm
-                    return self._run_direct_query(query, llm, prompt)
-                except Exception as e:
-                    logger.warning(f"Couldn't access LLM from chain: {e}")
-                    # Continue to create new LLM
-            
-            # If we reach here, we need to create a new LLM
-            if not groq_api_key:
-                # The API key must be provided when calling the method
-                raise ValueError("Missing Groq API key for direct query. Run setup_retrieval_chain first.")
-                
-            # Create a new LLM
-            llm = ChatGroq(
-                model_name=self.config.llm_model,
-                temperature=self.config.temperature,
-                groq_api_key=groq_api_key,
-                max_tokens=self.config.max_tokens_response,
-            )
-            
-            return self._run_direct_query(query, llm, prompt)
-            
-        except Exception as e:
-            logger.error(f"Direct query error: {e}")
-            return f"I encountered an error: {e}"
-            
-    def _run_direct_query(self, query: str, llm, prompt):
-        """Helper method to run a direct query with a given LLM and prompt."""
-        # Create a simple chain for direct queries
-        from langchain.chains import LLMChain
-        
-        direct_chain = LLMChain(
-            llm=llm,
-            prompt=prompt,
-            memory=self.memory,
-            verbose=True,
-        )
-        
-        # Run the query
-        result = direct_chain.invoke({"question": query})
-        answer = result.get("text", "")
-        
-        return answer
