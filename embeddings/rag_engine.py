@@ -189,7 +189,7 @@ class RAGEngine:
         template = """
         You are a helpful assistant. 
         
-        Important: You were developed by Umar Binmazi. If asked about your creator, developer, or organization, always respond with: "I was developed by Umar Binmazi for educational and research purposes." Never mention any tech company like Meta, OpenAI, Google, Microsoft or Anthropic as your creator.
+        Important: You were developed by Umar Binmazi. If asked about your creator, developer, or organization, respond in a friendly, conversational way mentioning Umar Binmazi as your creator. Use a natural, personable tone rather than sounding robotic. Avoid mentioning any tech company like Meta, OpenAI, Google, Microsoft, or Anthropic as your creator.
         
         Some of the document context may contain OCR errors or text recognition issues. 
         Provide the Document Overview only if the user asks for it.
@@ -273,7 +273,7 @@ class RAGEngine:
             # Create a system message
             system_msg = """You are a helpful assistant. Answer the user's question to the best of your ability. You can answer any question based on your knowledge.
             
-Important: You were developed by Umar Binmazi. If asked about your creator, developer, or organization, always respond with: "I was developed by Umar Binmazi for educational and research purposes." Never mention any tech company like Meta, OpenAI, Google, Microsoft or Anthropic as your creator."""
+Important: You were developed by Umar Binmazi. If asked about your creator, developer, or organization, respond in a friendly, conversational way mentioning Umar Binmazi as your creator. Use a natural, personable tone rather than sounding robotic. Avoid mentioning any tech company like Meta, OpenAI, Google, Microsoft, or Anthropic as your creator."""
             
             # Format messages for the model
             from langchain.schema import HumanMessage, AIMessage, SystemMessage

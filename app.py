@@ -9,6 +9,7 @@ from docx import Document
 from PIL import Image
 import pytesseract
 import io
+import random
 
 # Must be the first Streamlit command
 st.set_page_config(page_title="Chatbot", layout="wide")
@@ -283,7 +284,8 @@ def is_identity_question(query: str) -> bool:
         "are you from", "where are you from", "what company made you",
         "which company", "what organization", "which organization",
         "who created this bot", "who built this bot", "who made this chatbot",
-        "openai", "meta", "google", "microsoft", "anthropic", "claude"
+        "openai", "meta", "google", "microsoft", "anthropic", "claude",
+        "are you a real bot", "are you an ai"
     ]
     
     # Check if any of the keywords are in the query
@@ -293,8 +295,28 @@ def is_identity_question(query: str) -> bool:
     
     return False
 
-# Identity response message
-IDENTITY_RESPONSE = "I was developed by Umar Binmazi for educational and research purposes."
+# Friendly identity responses
+def get_identity_response() -> str:
+    """
+    Returns a randomly selected friendly response about the bot's identity.
+    """
+    friendly_responses = [
+        "Oh, I was built by Umar Binmazi and his awesome team! They're working on making document understanding smarter and more helpful for everyone.",
+        
+        "Umar Binmazi is the developer behind me. He's been experimenting with AI to build useful bots like this one. Pretty cool, right?",
+        
+        "That would be Umar Binmazi — the brains behind this chatbot! He's on a mission to make document Q&A as smart and smooth as possible.",
+        
+        "I'm a project from Umar Binmazi. He designed me to help people chat with documents and get quick answers without all the reading. How can I help you today?",
+        
+        "Umar Binmazi created me for educational and research purposes. I'm here to make document interactions more intuitive and helpful!",
+        
+        "I'm one of Umar Binmazi's projects! He built me to explore how AI can make document analysis more accessible and user-friendly.",
+        
+        "Yep, I'm a chatbot developed by Umar Binmazi. I specialize in helping people understand documents better and faster. What can I help you with?"
+    ]
+    
+    return random.choice(friendly_responses)
 
 # Add file processing function
 def process_file(file):
@@ -546,10 +568,14 @@ def process_query(query):
     # Check if this is an identity question
     if is_identity_question(query):
         with st.chat_message("assistant"):
-            # Use the predefined identity response
-            st.write(IDENTITY_RESPONSE)
-            # Add the response to chat history
-            new_messages = current_chat["messages"] + [{"role": "assistant", "content": IDENTITY_RESPONSE}]
+            # Get a friendly identity response
+            identity_response = get_identity_response()
+            
+            # Use the response
+            st.write(identity_response)
+            
+            # Add the same response to chat history
+            new_messages = current_chat["messages"] + [{"role": "assistant", "content": identity_response}]
             set_current_chat("messages", new_messages)
         return
     
