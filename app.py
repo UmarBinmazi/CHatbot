@@ -488,7 +488,7 @@ if uploaded_file and not current_chat["document_processed"]:
         st.rerun()
 
 # Main chat interface
-st.title("Chat with your Documents")
+st.title("Ask me anything or chat with your Documents")
 
 # Display document info if loaded
 if current_chat["document_processed"]:
