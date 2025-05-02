@@ -508,12 +508,13 @@ def process_query(query):
     new_messages = current_chat["messages"] + [{"role": "user", "content": query}]
     set_current_chat("messages", new_messages)
     
-    # If document is processed, get answer
-    if current_chat["document_processed"] and current_chat["rag_engine"]:
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                try:
-                    # Query the RAG engine
+    # Process with assistant
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            try:
+                # Check if we have a document processed
+                if current_chat["document_processed"] and current_chat["rag_engine"]:
+                    # Use RAG-based response
                     answer, sources = current_chat["rag_engine"].query(query)
                     
                     # Display answer
@@ -543,37 +544,53 @@ def process_query(query):
                                 if confidence is not None:
                                     confidence_color = "green" if confidence > 0.8 else "orange" if confidence > 0.5 else "red"
                                     st.markdown(f"<span style='color:{confidence_color}'>Source confidence: {confidence:.2f}</span>", unsafe_allow_html=True)
-                    
-                    # Add assistant response to chat history
-                    new_messages = current_chat["messages"] + [{"role": "assistant", "content": answer}]
-                    set_current_chat("messages", new_messages)
-                    
-                except Exception as e:
-                    error_msg = str(e)
-                    logger.error(f"Error generating response: {error_msg}")
-                    
-                    # Check if it's a token limit error
-                    if "token" in error_msg.lower() and "limit" in error_msg.lower():
-                        recovery_msg = (
-                            "I encountered a token limit error. This happens when the conversation "
-                            "gets too long or the document sections needed are too large. "
-                            "Try asking a more specific question or reducing the context tokens in settings."
-                        )
-                        st.error(error_msg)
-                        st.write(recovery_msg)
-                        new_messages = current_chat["messages"] + [{"role": "assistant", "content": recovery_msg}]
-                        set_current_chat("messages", new_messages)
+                else:
+                    # No document uploaded, use direct LLM chat instead
+                    groq_api_key = get_env_variable("GROQ_API_KEY")
+                    if not groq_api_key:
+                        st.error("Groq API key is missing. Please add it to your environment variables.")
+                        answer = "I couldn't process your request because the Groq API key is missing. Please add it to your environment variables."
                     else:
-                        # General error
-                        st.error(f"Error: {e}")
-                        error_response = f"I encountered an error while processing your question. Please try again or ask a different question."
-                        st.write(error_response)
-                        new_messages = current_chat["messages"] + [{"role": "assistant", "content": error_response}]
-                        set_current_chat("messages", new_messages)
-    else:
-        new_messages = current_chat["messages"] + [{"role": "assistant", "content": "Please upload a document first in the sidebar."}]
-        set_current_chat("messages", new_messages)
-        st.rerun()
+                        # Check if we have a RAG engine already
+                        if not hasattr(current_chat, "direct_chat_engine") or not current_chat.get("direct_chat_engine"):
+                            # Create and store a chat engine for this session
+                            temp_engine = RAGEngine(config=rag_config).initialize()
+                            temp_engine.setup_retrieval_chain(groq_api_key)
+                            set_current_chat("direct_chat_engine", temp_engine)
+                            
+                        # Get the chat engine and query
+                        chat_engine = current_chat.get("direct_chat_engine")
+                        answer = chat_engine.query_direct(query)
+                    
+                    # Display the answer
+                    st.write(answer)
+                
+                # Add assistant response to chat history
+                new_messages = current_chat["messages"] + [{"role": "assistant", "content": answer}]
+                set_current_chat("messages", new_messages)
+                
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(f"Error generating response: {error_msg}")
+                
+                # Check if it's a token limit error
+                if "token" in error_msg.lower() and "limit" in error_msg.lower():
+                    recovery_msg = (
+                        "I encountered a token limit error. This happens when the conversation "
+                        "gets too long or the document sections needed are too large. "
+                        "Try asking a more specific question or reducing the context tokens in settings."
+                    )
+                    st.error(error_msg)
+                    st.write(recovery_msg)
+                    new_messages = current_chat["messages"] + [{"role": "assistant", "content": recovery_msg}]
+                    set_current_chat("messages", new_messages)
+                else:
+                    # General error
+                    st.error(f"Error: {e}")
+                    error_response = f"I encountered an error while processing your question. Please try again or ask a different question."
+                    st.write(error_response)
+                    new_messages = current_chat["messages"] + [{"role": "assistant", "content": error_response}]
+                    set_current_chat("messages", new_messages)
 
 # User input
 query = st.chat_input("Ask anything about your document...")
