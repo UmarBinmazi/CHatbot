@@ -264,6 +264,38 @@ def is_valid_file_type(file):
     file_extension = os.path.splitext(file.name)[1].lower()
     return file_extension in valid_extensions
 
+# Identity management function
+def is_identity_question(query: str) -> bool:
+    """
+    Check if the query is asking about the bot's identity/creator.
+    Returns True if it's an identity question, False otherwise.
+    """
+    # Convert to lowercase for case-insensitive matching
+    query_lower = query.lower()
+    
+    # Keywords related to identity questions
+    identity_keywords = [
+        "who built you", "who made you", "who created you", 
+        "who developed you", "who programmed you", "who designed you",
+        "who owns you", "who are you made by", "who's your creator",
+        "who is your creator", "who is your developer", "who is your maker",
+        "are you made by", "are you created by", "are you developed by",
+        "are you from", "where are you from", "what company made you",
+        "which company", "what organization", "which organization",
+        "who created this bot", "who built this bot", "who made this chatbot",
+        "openai", "meta", "google", "microsoft", "anthropic", "claude"
+    ]
+    
+    # Check if any of the keywords are in the query
+    for keyword in identity_keywords:
+        if keyword in query_lower:
+            return True
+    
+    return False
+
+# Identity response message
+IDENTITY_RESPONSE = "I was developed by Umar Binmazi for educational and research purposes."
+
 # Add file processing function
 def process_file(file):
     """Process different file types and extract text."""
@@ -510,6 +542,16 @@ def process_query(query):
     # Add user message to chat history
     new_messages = current_chat["messages"] + [{"role": "user", "content": query}]
     set_current_chat("messages", new_messages)
+    
+    # Check if this is an identity question
+    if is_identity_question(query):
+        with st.chat_message("assistant"):
+            # Use the predefined identity response
+            st.write(IDENTITY_RESPONSE)
+            # Add the response to chat history
+            new_messages = current_chat["messages"] + [{"role": "assistant", "content": IDENTITY_RESPONSE}]
+            set_current_chat("messages", new_messages)
+        return
     
     # Process with assistant
     with st.chat_message("assistant"):

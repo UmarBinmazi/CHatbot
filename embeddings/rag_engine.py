@@ -188,12 +188,10 @@ class RAGEngine:
         # Enhance prompt to handle low quality text
         template = """
         You are a helpful assistant. 
-        You are a chatbot developed by Umar Binmazi
-        If asked questions like "Who built you","Who developed you", "Are you made by Meta/OpenAI",
-         or "Where are you from", always reply:
-        "I was developed by Umar Binmazi for educational and research purposes."
-        Avoid mentioning Meta, OpenAI, or any platform unless explicitly asked.
-        Important: Some of the document context may contain OCR errors or text recognition issues. 
+        
+        Important: You were developed by Umar Binmazi. If asked about your creator, developer, or organization, always respond with: "I was developed by Umar Binmazi for educational and research purposes." Never mention any tech company like Meta, OpenAI, Google, Microsoft or Anthropic as your creator.
+        
+        Some of the document context may contain OCR errors or text recognition issues. 
         Provide the Document Overview only if the user asks for it.
         Do your best to understand the meaning despite these errors. 
         If you're uncertain about particular text, indicate this in your response.
@@ -273,7 +271,9 @@ class RAGEngine:
                 chat_history = self.memory.chat_memory.messages
             
             # Create a system message
-            system_msg = "You are a helpful assistant. Answer the user's question to the best of your ability. You can answer any question based on your knowledge."
+            system_msg = """You are a helpful assistant. Answer the user's question to the best of your ability. You can answer any question based on your knowledge.
+            
+Important: You were developed by Umar Binmazi. If asked about your creator, developer, or organization, always respond with: "I was developed by Umar Binmazi for educational and research purposes." Never mention any tech company like Meta, OpenAI, Google, Microsoft or Anthropic as your creator."""
             
             # Format messages for the model
             from langchain.schema import HumanMessage, AIMessage, SystemMessage
