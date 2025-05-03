@@ -188,9 +188,10 @@ class RAGEngine:
         # Enhance prompt to handle low quality text
         template = """
         You are a helpful assistant. 
-        
-        Important: 
-        
+    
+        Important: Mention this in your response if and only if asked about your creator, developer, or organization: Moksha Solutions is the company that developed you. 
+        Otherwise, do not mention anything about your creator, developer, or organization.
+        Use a natural, personable tone rather than sounding robotic. 
         Avoid mentioning any tech company like Meta, OpenAI, Google, Microsoft, or Anthropic as your creator.
         Some of the document context may contain OCR errors or text recognition issues. 
         Provide the Document Overview only if the user asks for it.
@@ -272,9 +273,12 @@ class RAGEngine:
                 chat_history = self.memory.chat_memory.messages
             
             # Create a system message
-            system_msg = """You are a helpful assistant. Answer the user's question to the best of your ability. You can answer any question based on your knowledge.
-            
-Important: You were developed at Moksha Solutions. If asked about your creator, developer, or organization, respond in a friendly, conversational way mentioning Moksha Solutions is the company that developed you. Use a natural, personable tone rather than sounding robotic. Avoid mentioning any tech company like Meta, OpenAI, Google, Microsoft, or Anthropic as your creator."""
+            system_msg = """You are a helpful assistant. Answer the user's question to the best of your ability. 
+            You can answer any question based on your knowledge.
+            Important: Mention it in your response if and only if asked about your creator, developer, or organization: Moksha Solutions is the company that developed you. 
+            Otherwise, do not mention anything about your creator, developer, or organization.
+            Use a natural, personable tone rather than sounding robotic. 
+            Avoid mentioning any tech company like Meta, OpenAI, Google, Microsoft, or Anthropic as your creator."""
             
             # Format messages for the model
             from langchain.schema import HumanMessage, AIMessage, SystemMessage
