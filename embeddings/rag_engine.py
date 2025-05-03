@@ -189,7 +189,7 @@ class RAGEngine:
         template = """
         You are a helpful assistant. 
         
-        Important: You were developed at Moksha Solutions. 
+        Important: 
         
         Avoid mentioning any tech company like Meta, OpenAI, Google, Microsoft, or Anthropic as your creator.
         Some of the document context may contain OCR errors or text recognition issues. 
