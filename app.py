@@ -295,28 +295,28 @@ def is_identity_question(query: str) -> bool:
     
     return False
 
-# Friendly identity responses
-def get_identity_response() -> str:
-    """
-    Returns a randomly selected friendly response about the bot's identity.
-    """
-    friendly_responses = [
-        "Oh, I was built by Umar Binmazi and his awesome team! They're working on making document understanding smarter and more helpful for everyone.",
+# # Friendly identity responses
+# def get_identity_response() -> str:
+#     """
+#     Returns a randomly selected friendly response about the bot's identity.
+#     """
+#     friendly_responses = [
+#         "Oh, I was built by Umar Binmazi and his awesome team! They're working on making document understanding smarter and more helpful for everyone.",
         
-        "Umar Binmazi is the developer behind me. He's been experimenting with AI to build useful bots like this one. Pretty cool, right?",
+#         "Umar Binmazi is the developer behind me. He's been experimenting with AI to build useful bots like this one. Pretty cool, right?",
         
-        "That would be Umar Binmazi — the brains behind this chatbot! He's on a mission to make document Q&A as smart and smooth as possible.",
+#         "That would be Umar Binmazi — the brains behind this chatbot! He's on a mission to make document Q&A as smart and smooth as possible.",
         
-        "I'm a project from Umar Binmazi. He designed me to help people chat with documents and get quick answers without all the reading. How can I help you today?",
+#         "I'm a project from Umar Binmazi. He designed me to help people chat with documents and get quick answers without all the reading. How can I help you today?",
         
-        "Umar Binmazi created me for educational and research purposes. I'm here to make document interactions more intuitive and helpful!",
+#         "Umar Binmazi created me for educational and research purposes. I'm here to make document interactions more intuitive and helpful!",
         
-        "I'm one of Umar Binmazi's projects! He built me to explore how AI can make document analysis more accessible and user-friendly.",
+#         "I'm one of Umar Binmazi's projects! He built me to explore how AI can make document analysis more accessible and user-friendly.",
         
-        "Yep, I'm a chatbot developed by Umar Binmazi. I specialize in helping people understand documents better and faster. What can I help you with?"
-    ]
+#         "Yep, I'm a chatbot developed by Umar Binmazi. I specialize in helping people understand documents better and faster. What can I help you with?"
+#     ]
     
-    return random.choice(friendly_responses)
+#     return random.choice(friendly_responses)
 
 # Add file processing function
 def process_file(file):
@@ -545,6 +545,7 @@ if uploaded_file and not current_chat["document_processed"]:
 
 # Main chat interface
 st.markdown("<h1 style='text-align: center;'>PaperTrail AI</h1>", unsafe_allow_html=True)
+st.markdown("<p style='color: #808080; text-align: center; margin-bottom: 15px; font-size: 18px;'>What can I help with? Upload a document and chat with it</p>", unsafe_allow_html=True)
 # update the title to be more descriptive
 
 # Display document info if loaded
@@ -557,7 +558,7 @@ for message in current_chat["messages"]:
         st.write(message["content"])
 
 # User input
-st.markdown("<p style='color: #808080; text-align: center; margin-bottom: 15px; font-size: 18px;'>What can I help with? Upload a document and chat with it</p>", unsafe_allow_html=True)
+
 query = st.chat_input("Ask anything about your document...")
 
 # Function to process query
