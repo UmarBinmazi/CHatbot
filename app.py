@@ -545,7 +545,7 @@ if uploaded_file and not current_chat["document_processed"]:
 
 # Main chat interface
 st.title("PaperTrail AI")
-st.title("What can I help with?")
+st.markdown("### What can I help with?")
 st.markdown("### Upload a document and chat with it")
 # update the title to be more descriptive
 
