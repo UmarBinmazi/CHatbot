@@ -557,8 +557,8 @@ for message in current_chat["messages"]:
         st.write(message["content"])
 
 # User input
-st.markdown("<p style='color: #808080; margin-bottom: 5px; font-size: 18px;'>What can I help with?</p>", unsafe_allow_html=True)
-st.markdown("<p style='color: #808080; margin-top: 0px; margin-bottom: 12px; font-size: 18px;'>Upload a document and chat with it</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #808080, text-align: center; margin-bottom: 5px; font-size: 18px;'>What can I help with?</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #808080, text-align: center; margin-top: 0px; margin-bottom: 12px; font-size: 18px;'>Upload a document and chat with it</p>", unsafe_allow_html=True)
 query = st.chat_input("Ask anything about your document...")
 
 # Function to process query
