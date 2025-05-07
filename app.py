@@ -134,7 +134,7 @@ def regenerate_response():
 
 # Sidebar for file upload, settings, and chat selection
 with st.sidebar:
-    st.title("PaperTrail AI")
+    st.title("You can upload documents from below ⬇️")
     
     # Chat selection section
     st.markdown("### Chats")
