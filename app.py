@@ -134,7 +134,7 @@ def regenerate_response():
 
 # Sidebar for file upload, settings, and chat selection
 with st.sidebar:
-    st.title("DocumentAI Chat")
+    st.title("PaperTrail AI")
     
     # Chat selection section
     st.markdown("### Chats")
@@ -247,16 +247,16 @@ with st.sidebar:
         rag_config.retrieval_k = retrieval_k
 
     # API key status
-    st.markdown("### API Status")
-    if api_keys["huggingface_key"]:
-        st.success("HuggingFace API key loaded")
-    else:
-        st.warning("HuggingFace API key not found")
+    # st.markdown("### API Status")
+    # if api_keys["huggingface_key"]:
+    #     st.success("HuggingFace API key loaded")
+    # else:
+    #     st.warning("HuggingFace API key not found")
         
-    if api_keys["groq_key"]:
-        st.success("Groq API key loaded")
-    else:
-        st.error("Groq API key missing")
+    # if api_keys["groq_key"]:
+    #     st.success("Groq API key loaded")
+    # else:
+    #     st.error("Groq API key missing")
 
 # Add file type validation function
 def is_valid_file_type(file):
