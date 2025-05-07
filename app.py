@@ -545,8 +545,6 @@ if uploaded_file and not current_chat["document_processed"]:
 
 # Main chat interface
 st.markdown("<h1 style='text-align: center;'>PaperTrail AI</h1>", unsafe_allow_html=True)
-st.markdown("<p style='color: #808080; margin-bottom: 0px;'>What can I help with?</p>", unsafe_allow_html=True)
-st.markdown("<p style='color: #808080; margin-top: 0px;'>Upload a document and chat with it</p>", unsafe_allow_html=True)
 # update the title to be more descriptive
 
 # Display document info if loaded
@@ -557,6 +555,11 @@ if current_chat["document_processed"]:
 for message in current_chat["messages"]:
     with st.chat_message(message["role"]):
         st.write(message["content"])
+
+# User input
+st.markdown("<p style='color: #808080; margin-bottom: 5px; font-size: 18px;'>What can I help with?</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #808080; margin-top: 0px; margin-bottom: 12px; font-size: 18px;'>Upload a document and chat with it</p>", unsafe_allow_html=True)
+query = st.chat_input("Ask anything about your document...")
 
 # Function to process query
 def process_query(query):
@@ -668,9 +671,6 @@ def process_query(query):
                     st.write(error_response)
                     new_messages = current_chat["messages"] + [{"role": "assistant", "content": error_response}]
                     set_current_chat("messages", new_messages)
-
-# User input
-query = st.chat_input("Ask anything about your document...")
 
 # Process user query
 if query:
