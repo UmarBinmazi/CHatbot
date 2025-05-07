@@ -544,7 +544,9 @@ if uploaded_file and not current_chat["document_processed"]:
         st.rerun()
 
 # Main chat interface
-st.title("Ask me anything directly or upload document and chat with your document")
+st.title("PaperTrail AI")
+st.title("What can I help with?")
+st.markdown("### Upload a document and chat with it")
 # update the title to be more descriptive
 
 # Display document info if loaded
