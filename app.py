@@ -252,7 +252,7 @@ with st.sidebar:
     #     st.success("HuggingFace API key loaded")
     # else:
     #     st.warning("HuggingFace API key not found")
-        
+    #         
     # if api_keys["groq_key"]:
     #     st.success("Groq API key loaded")
     # else:
@@ -544,9 +544,9 @@ if uploaded_file and not current_chat["document_processed"]:
         st.rerun()
 
 # Main chat interface
-st.title("PaperTrail AI")
-st.markdown("### What can I help with?")
-st.markdown("### Upload a document and chat with it")
+st.markdown("<h1 style='text-align: center;'>PaperTrail AI</h1>", unsafe_allow_html=True)
+st.markdown("<p style='color: #808080; margin-bottom: 0px;'>What can I help with?</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #808080; margin-top: 0px;'>Upload a document and chat with it</p>", unsafe_allow_html=True)
 # update the title to be more descriptive
 
 # Display document info if loaded
