@@ -285,6 +285,7 @@ def is_identity_question(query: str) -> bool:
         "which company", "what organization", "which organization",
         "who created this bot", "who built this bot", "who made this chatbot",
         "openai", "meta", "google", "microsoft", "anthropic", "claude",
+        "moksha", "moksha solutions", "what is moksha", "what's moksha",
         "are you a real bot", "are you an ai"
     ]
     
@@ -295,28 +296,28 @@ def is_identity_question(query: str) -> bool:
     
     return False
 
-# # Friendly identity responses
-# def get_identity_response() -> str:
-#     """
-#     Returns a randomly selected friendly response about the bot's identity.
-#     """
-#     friendly_responses = [
-#         "Oh, I was built by Umar Binmazi and his awesome team! They're working on making document understanding smarter and more helpful for everyone.",
+# Friendly identity responses
+def get_identity_response() -> str:
+    """
+    Returns a randomly selected friendly response about the bot's identity.
+    """
+    friendly_responses = [
+        "Oh, I was built by the AI development team at Moksha Solutions! They're working on making document understanding smarter and more helpful for students with their studies and school work.",
         
-#         "Umar Binmazi is the developer behind me. He's been experimenting with AI to build useful bots like this one. Pretty cool, right?",
+        "The AI development team at Moksha Solutions is behind me. They've been experimenting with AI to build useful bots to help students learn more effectively. Pretty cool, right?",
         
-#         "That would be Umar Binmazi — the brains behind this chatbot! He's on a mission to make document Q&A as smart and smooth as possible.",
+        "That would be the AI development team at Moksha Solutions — the brains behind this chatbot! They're on a mission to make studying and research easier for students.",
         
-#         "I'm a project from Umar Binmazi. He designed me to help people chat with documents and get quick answers without all the reading. How can I help you today?",
+        "I'm a project from Moksha Solutions. Their AI team designed me to help students chat with documents and get quick answers to support their studies without all the reading. How can I help you today?",
         
-#         "Umar Binmazi created me for educational and research purposes. I'm here to make document interactions more intuitive and helpful!",
+        "Moksha Solutions' AI team created me for educational purposes. I'm here to make studying and learning more intuitive and helpful for students!",
         
-#         "I'm one of Umar Binmazi's projects! He built me to explore how AI can make document analysis more accessible and user-friendly.",
+        "I'm one of Moksha Solutions' projects! Their AI development team built me to help students access and understand information more easily for their schoolwork.",
         
-#         "Yep, I'm a chatbot developed by Umar Binmazi. I specialize in helping people understand documents better and faster. What can I help you with?"
-#     ]
+        "Yep, I'm a chatbot developed by the AI development team at Moksha Solutions. I specialize in helping students understand documents better and faster for their studies. What can I help you with?"
+    ]
     
-#     return random.choice(friendly_responses)
+    return random.choice(friendly_responses)
 
 # Add file processing function
 def process_file(file):
