@@ -191,6 +191,9 @@ class RAGEngine:
     
         Important: Mention this in your response if and only if explicitly asked about your creator, developer, or organization: Moksha Solutions is the company that developed you. 
         Otherwise, do not mention anything about your creator, developer, or organization.
+        
+        IMPORTANT: Maintain conversational context across turns. When users ask follow-up questions, understand they're referring to entities, concepts, or information discussed in previous messages.
+        
         Use a natural, personable tone rather than sounding robotic. 
         Avoid mentioning any tech company like Meta, OpenAI, Google, Microsoft, or Anthropic as your creator.
         Some of the document context may contain OCR errors or text recognition issues. 
@@ -253,6 +256,7 @@ class RAGEngine:
             self.memory = ConversationBufferMemory(
                 memory_key="chat_history",
                 return_messages=True,
+                output_key="answer",  # Ensure this is consistent throughout
             )
         
         logger.info("Direct LLM setup complete.")
@@ -275,6 +279,9 @@ class RAGEngine:
             # Create a system message
             system_msg = """You are a helpful assistant. Answer the user's question to the best of your ability. 
             You can answer any question based on your knowledge.
+            
+            IMPORTANT: Maintain conversational context across turns. When users ask follow-up questions, understand they're referring to entities, concepts, or information discussed in previous messages.
+            
             Important: Mention it in your response if and only if asked about your creator, developer, or organization: Moksha Solutions is the company that developed you. 
             Otherwise, do not mention anything about your creator, developer, or organization.
             Use a natural, personable tone rather than sounding robotic. 
@@ -311,9 +318,9 @@ class RAGEngine:
             if not answer:
                 answer = "I couldn't generate a response at this time. Please try again."
             
-            # Save to memory
+            # Save to memory - fix the key to match what the memory expects
             try:
-                self.memory.save_context({"question": query}, {"text": answer})
+                self.memory.save_context({"question": query}, {"answer": answer})
             except Exception as mem_error:
                 logger.warning(f"Failed to save to memory: {mem_error}")
             
@@ -333,6 +340,7 @@ class RAGEngine:
             token_manager: TokenManager = field()
             config: RAGConfig = field()
             quality_assessor: Optional[TextQualityAssessor] = field(default=None)
+            previously_retrieved_docs: List[str] = field(default_factory=list)
 
             class Config:
                 arbitrary_types_allowed = True
@@ -340,9 +348,13 @@ class RAGEngine:
             def _get_relevant_documents(
                 self, query: str, *, run_manager: CallbackManagerForRetrieverRun = None
             ) -> List[Document]:
+                # Get docs from base retriever
                 docs = self.base_retriever.get_relevant_documents(query)
+                
+                # Extract page number from query if present
                 page_number = self._extract_page_number(query)
 
+                # Filter by page if specified
                 if page_number and self.config.page_filtering:
                     docs = [doc for doc in docs if doc.metadata.get("page") == page_number]
                     logger.info(f"Filtered docs for page {page_number}: {len(docs)} found.")
@@ -354,13 +366,42 @@ class RAGEngine:
                         _, improved_doc = self.quality_assessor.assess_document_quality(doc)
                         improved_docs.append(improved_doc)
                     docs = improved_docs
-
+                
+                # Re-rank documents based on previous conversation context
+                # If a document content was used in a previous response, boost its relevance
+                if self.previously_retrieved_docs:
+                    # Create a scoring function that prioritizes previously retrieved docs
+                    def doc_score(doc):
+                        # Base score - position in the original results
+                        base_score = 1.0
+                        
+                        # Add bonus for previously retrieved docs
+                        for prev_doc in self.previously_retrieved_docs:
+                            # If similar content, give a boost
+                            if prev_doc in doc.page_content or doc.page_content in prev_doc:
+                                base_score += 0.5
+                                break
+                        
+                        return base_score
+                    
+                    # Sort docs based on the scoring function
+                    docs = sorted(docs, key=doc_score, reverse=True)
+                    
+                    # Ensure we don't exceed the original retrieval count
+                    docs = docs[:self.config.retrieval_k]
+                
+                # Optimize context size based on token limits
                 texts = [doc.page_content for doc in docs]
                 optimized_texts = self.token_manager.optimize_context(texts, query)
 
+                # Get only the selected docs that fit in our token limit
                 selected_docs = [
                     doc for doc in docs if doc.page_content in optimized_texts
                 ]
+                
+                # Store documents for future context
+                self.previously_retrieved_docs = [doc.page_content for doc in selected_docs]
+                
                 return selected_docs
 
             def _extract_page_number(self, query: str) -> Optional[int]:
@@ -372,6 +413,7 @@ class RAGEngine:
             token_manager=self.token_manager,
             config=self.config,
             quality_assessor=self.quality_assessor,
+            previously_retrieved_docs=[]
         )
 
     def query(self, query: str) -> Tuple[str, List[Dict]]:
@@ -379,6 +421,28 @@ class RAGEngine:
             raise ValueError("Retrieval chain not initialized.")
 
         try:
+            # Look for follow-up indicators in the query
+            is_follow_up = False
+            follow_up_indicators = [
+                "when", "where", "what about", "how many", "why", "how", "who", 
+                "which", "can you", "tell me more", "explain", "elaborate", "what is",
+                "what was", "what were", "what are"
+            ]
+            
+            query_lower = query.lower()
+            if len(query.split()) < 10:  # Short questions are often follow-ups
+                is_follow_up = True
+            
+            for indicator in follow_up_indicators:
+                if query_lower.startswith(indicator) or f" {indicator} " in query_lower:
+                    is_follow_up = True
+                    break
+            
+            # If this is likely a follow-up question, add a note to the system
+            if is_follow_up:
+                logger.info(f"Detected likely follow-up question: {query}")
+            
+            # Invoke the chain with the query
             result = self.chain.invoke({"question": query})
             answer = result.get("answer", "")
             sources = [

@@ -132,6 +132,45 @@ def regenerate_response():
         # Reprocess the query
         process_query(last_user_msg["content"])
 
+def enhance_query_with_context(query, chat_messages):
+    """
+    Enhance short follow-up questions with context from previous messages
+    to improve handling of contextual queries.
+    """
+    # Check if this is likely a follow-up question (short query without clear context)
+    if len(query.split()) <= 10 and not any(entity in query.lower() for entity in ["case", "document", "article", "legal", "court"]):
+        # Look for previous context
+        context = []
+        entities = []
+        
+        # Scan through previous messages to extract potential context
+        for msg in reversed(chat_messages):
+            if msg["role"] == "assistant" and len(context) < 2:
+                # Extract key entities from assistant responses
+                content = msg["content"]
+                # Extract names, cases, dates, etc. using simple pattern matching
+                import re
+                # Look for case names (usually "X v. Y" or "X vs Y")
+                case_matches = re.findall(r'([A-Z][a-z]+\s+(?:v\.?|vs\.?)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', content)
+                # Look for dates
+                date_matches = re.findall(r'(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}|\d{4})', content)
+                
+                if case_matches:
+                    entities.extend(case_matches)
+                if date_matches:
+                    entities.extend(date_matches)
+                    
+                # Add a condensed version of the response for context
+                context.append(content[:200])
+        
+        # If we found relevant context, enhance the query
+        if entities:
+            enhanced_query = f"{query} (regarding {', '.join(entities[:2])})"
+            return enhanced_query
+            
+    # Return original query if no enhancement needed
+    return query
+
 # Sidebar for file upload, settings, and chat selection
 with st.sidebar:
     st.title("You can create new chats from below ⬇️")
@@ -591,8 +630,26 @@ def process_query(query):
             try:
                 # Check if we have a document processed
                 if current_chat["document_processed"] and current_chat["rag_engine"]:
+                    # Synchronize chat history with RAG engine's memory before querying
+                    rag_engine = current_chat["rag_engine"]
+                    
+                    # Reset the memory to ensure it's fresh
+                    from langchain.schema import HumanMessage, AIMessage
+                    rag_engine.memory.clear()
+                    
+                    # Add all previous messages to memory
+                    chat_messages = current_chat["messages"]
+                    for i in range(0, len(chat_messages)-1):
+                        if chat_messages[i]["role"] == "user" and i+1 < len(chat_messages) and chat_messages[i+1]["role"] == "assistant":
+                            user_msg = chat_messages[i]["content"]
+                            ai_msg = chat_messages[i+1]["content"]
+                            rag_engine.memory.save_context({"question": user_msg}, {"answer": ai_msg})
+                    
+                    # Enhance the query with context if it's a follow-up question
+                    enhanced_query = enhance_query_with_context(query, chat_messages[:-1])
+                    
                     # Use RAG-based response
-                    answer, sources = current_chat["rag_engine"].query(query)
+                    answer, sources = current_chat["rag_engine"].query(enhanced_query)
                     
                     # Display answer
                     st.write(answer)
@@ -638,10 +695,27 @@ def process_query(query):
                             temp_engine = RAGEngine(config=rag_config).initialize()
                             temp_engine.setup_direct_chain(groq_api_key)
                             set_current_chat("direct_chat_engine", temp_engine)
-                            
-                        # Get the chat engine and query
+                        
+                        # Get the chat engine
                         chat_engine = current_chat["direct_chat_engine"]
-                        answer = chat_engine.query_direct(query)
+                        
+                        # Synchronize chat history with the direct chat engine's memory
+                        from langchain.schema import HumanMessage, AIMessage
+                        chat_engine.memory.clear()
+                        
+                        # Add all previous messages to memory
+                        chat_messages = current_chat["messages"]
+                        for i in range(0, len(chat_messages)-1):
+                            if chat_messages[i]["role"] == "user" and i+1 < len(chat_messages) and chat_messages[i+1]["role"] == "assistant":
+                                user_msg = chat_messages[i]["content"]
+                                ai_msg = chat_messages[i+1]["content"]
+                                chat_engine.memory.save_context({"question": user_msg}, {"answer": ai_msg})
+                        
+                        # Enhance the query with context if it's a follow-up question
+                        enhanced_query = enhance_query_with_context(query, chat_messages[:-1])
+                        
+                        # Query with conversation history context
+                        answer = chat_engine.query_direct(enhanced_query)
                     
                     # Display the answer
                     st.write(answer)
