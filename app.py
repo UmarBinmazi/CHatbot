@@ -28,13 +28,23 @@ from core.chunking import DocumentChunker
 from embeddings.rag_engine import RAGEngine, RAGConfig
 from core.ocr import OCRProcessor
 
+# Debug - Print the API key (only first few characters for security)
+groq_key = get_env_variable("GROQ_API_KEY")
+if groq_key:
+    st.sidebar.info(f"Loaded Groq API key: {groq_key[:5]}...")
+    print(f"Loaded Groq API key: {groq_key[:5]}...")
+else:
+    st.sidebar.error("No Groq API key found")
+    print("No Groq API key found")
+
 # Initialize API keys
 api_keys = setup_api_keys()
 
 # Set default configuration
 DEFAULT_MAX_TOKENS_CONTEXT = 8192
 DEFAULT_MAX_TOKENS_RESPONSE = 2048
-DEFAULT_MODEL = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+#DEFAULT_MODEL = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+DEFAULT_MODEL = "llama4-groq"  # Updated to use an officially supported Groq model
 
 # Load configuration from environment
 max_tokens_context = int(get_env_variable("MAX_CONTEXT_TOKENS", DEFAULT_MAX_TOKENS_CONTEXT))
@@ -286,16 +296,16 @@ with st.sidebar:
         rag_config.retrieval_k = retrieval_k
 
     # API key status
-    # st.markdown("### API Status")
-    # if api_keys["huggingface_key"]:
-    #     st.success("HuggingFace API key loaded")
-    # else:
-    #     st.warning("HuggingFace API key not found")
-    #         
-    # if api_keys["groq_key"]:
-    #     st.success("Groq API key loaded")
-    # else:
-    #     st.error("Groq API key missing")
+    st.markdown("### API Status")
+    if api_keys["huggingface_key"]:
+        st.success("HuggingFace API key loaded")
+    else:
+        st.warning("HuggingFace API key not found")
+            
+    if api_keys["groq_key"]:
+        st.success("Groq API key loaded")
+    else:
+        st.error("Groq API key missing")
 
 # Add file type validation function
 def is_valid_file_type(file):

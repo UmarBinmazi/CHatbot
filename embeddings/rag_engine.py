@@ -28,7 +28,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RAGConfig:
     embedding_model: str = "all-MiniLM-L6-v2"
-    llm_model: str = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+    #llm_model: str = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+    llm_model: str = "llama4-groq"
     temperature: float = 0.5  # Reduced for more deterministic outputs
     max_tokens_response: int = 2048  # Increased for more comprehensive answers
     max_tokens_context: int = 8192  # Increased to leverage Llama-4's context window
