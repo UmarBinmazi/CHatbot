@@ -43,8 +43,8 @@ api_keys = setup_api_keys()
 # Set default configuration
 DEFAULT_MAX_TOKENS_CONTEXT = 8192
 DEFAULT_MAX_TOKENS_RESPONSE = 2048
-#DEFAULT_MODEL = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
-DEFAULT_MODEL = "llama4-groq"  # Updated to use an officially supported Groq model
+DEFAULT_MODEL = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+#DEFAULT_MODEL = "llama4-groq"  # Updated to use an officially supported Groq model
 
 # Load configuration from environment
 max_tokens_context = int(get_env_variable("MAX_CONTEXT_TOKENS", DEFAULT_MAX_TOKENS_CONTEXT))
